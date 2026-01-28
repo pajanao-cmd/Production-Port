@@ -1,0 +1,8 @@
+{
+  "name": "Production Portfolio Presenter",
+  "description": "A premium, cinematic portfolio presentation app designed for producers and directors to pitch works to executives and clients, featuring offline support and a distraction-free presentation mode.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
