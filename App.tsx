@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -27,7 +28,9 @@ import {
   Briefcase,
   Edit,
   MoreVertical,
-  GripVertical
+  GripVertical,
+  Filter,
+  X
 } from 'lucide-react';
 
 // Mock Data Initial
@@ -140,6 +143,11 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ projects, profile }) => {
   const navigate = useNavigate();
   const [offlineStatus, setOfflineStatus] = useState<Record<string, boolean>>({});
+  
+  // Filtering States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
   useEffect(() => {
     const checkOffline = async () => {
@@ -152,9 +160,34 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, profile }) => {
     checkOffline();
   }, [projects]);
 
+  // Derived Filter Options
+  const uniqueYears = Array.from(new Set(projects.map(p => p.year))).sort((a: number, b: number) => b - a);
+  const uniqueRoles = Array.from(new Set(projects.map(p => p.role))).sort();
+
+  // Filtering Logic
+  const filteredProjects = projects.filter(project => {
+    const matchesSearch = (
+      project.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      project.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (project.client?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    const matchesYear = selectedYear ? project.year === selectedYear : true;
+    const matchesRole = selectedRole ? project.role === selectedRole : true;
+    
+    return matchesSearch && matchesYear && matchesRole;
+  });
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedYear(null);
+    setSelectedRole(null);
+  };
+
+  const hasActiveFilters = searchTerm || selectedYear || selectedRole;
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
-      <header className="mb-16 border-b border-zinc-900 pb-10">
+      <header className="mb-8 border-b border-zinc-900 pb-10">
         <div className="flex flex-col md:flex-row gap-8 items-start md:items-center justify-between">
           <div className="flex items-center gap-6">
             <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-2 border-zinc-800 shadow-2xl shrink-0">
@@ -187,7 +220,7 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, profile }) => {
           </div>
         </div>
 
-        <div className="flex justify-between items-end mt-8">
+        <div className="flex flex-col md:flex-row justify-between items-end mt-8 gap-4">
            <p className="text-zinc-400 max-w-2xl leading-relaxed">
              A curated selection of narrative and commercial works. <span className="text-zinc-600">Selected for presentation.</span>
            </p>
@@ -198,7 +231,9 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, profile }) => {
                <input 
                  type="text" 
                  placeholder="Search projects..." 
-                 className="bg-zinc-900 border border-zinc-800 rounded-full py-2 pl-10 pr-6 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-600 w-64"
+                 value={searchTerm}
+                 onChange={(e) => setSearchTerm(e.target.value)}
+                 className="bg-zinc-900 border border-zinc-800 rounded-full py-2 pl-10 pr-6 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-600 w-64 text-white placeholder-zinc-500"
                />
              </div>
              <button className="p-2 bg-zinc-900 border border-zinc-800 rounded-full hover:bg-zinc-800 transition-colors">
@@ -208,20 +243,94 @@ const Dashboard: React.FC<DashboardProps> = ({ projects, profile }) => {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {projects.map(project => (
-          <div key={project.id} className="relative">
-            <ProjectCard 
-              project={project} 
-              onClick={() => navigate(`/project/${project.id}`)} 
-            />
-            {offlineStatus[project.id] && (
-               <div className="absolute top-4 right-4 bg-zinc-900/80 backdrop-blur-sm p-1.5 rounded-full border border-green-500/30 flex items-center justify-center">
-                  <CheckCircle2 size={16} className="text-green-400" />
-               </div>
-            )}
+      {/* Filter Bar */}
+      <div className="flex flex-wrap items-center gap-3 mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="flex items-center gap-2 text-zinc-500 mr-2">
+          <Filter size={16} />
+          <span className="text-xs font-bold uppercase tracking-widest">Filter by</span>
+        </div>
+
+        {/* Year Select */}
+        <div className="relative">
+          <select 
+            value={selectedYear || ''} 
+            onChange={e => setSelectedYear(e.target.value ? Number(e.target.value) : null)}
+            className="appearance-none bg-zinc-900 border border-zinc-800 rounded-full py-2 pl-4 pr-10 text-sm font-medium text-zinc-300 hover:border-zinc-600 focus:outline-none focus:border-white transition-colors cursor-pointer"
+          >
+            <option value="">All Years</option>
+            {uniqueYears.map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
-        ))}
+        </div>
+
+        {/* Role Select */}
+        <div className="relative">
+          <select 
+            value={selectedRole || ''} 
+            onChange={e => setSelectedRole(e.target.value || null)}
+            className="appearance-none bg-zinc-900 border border-zinc-800 rounded-full py-2 pl-4 pr-10 text-sm font-medium text-zinc-300 hover:border-zinc-600 focus:outline-none focus:border-white transition-colors cursor-pointer"
+          >
+            <option value="">All Roles</option>
+            {uniqueRoles.map(role => (
+              <option key={role} value={role}>{role}</option>
+            ))}
+          </select>
+           <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500">
+            <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        {/* Clear Filters */}
+        {hasActiveFilters && (
+          <button 
+            onClick={clearFilters}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wide text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-full transition-colors ml-auto md:ml-0"
+          >
+            <X size={14} /> Clear
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 min-h-[400px]">
+        {filteredProjects.length > 0 ? (
+          filteredProjects.map(project => (
+            <div key={project.id} className="relative animate-in fade-in zoom-in duration-500">
+              <ProjectCard 
+                project={project} 
+                onClick={() => navigate(`/project/${project.id}`)} 
+              />
+              {offlineStatus[project.id] && (
+                 <div className="absolute top-4 right-4 bg-zinc-900/80 backdrop-blur-sm p-1.5 rounded-full border border-green-500/30 flex items-center justify-center pointer-events-none">
+                    <CheckCircle2 size={16} className="text-green-400" />
+                 </div>
+              )}
+            </div>
+          ))
+        ) : (
+          <div className="col-span-full flex flex-col items-center justify-center text-center py-20 border border-dashed border-zinc-900 rounded-2xl">
+             <div className="p-4 bg-zinc-900 rounded-full text-zinc-500 mb-4">
+               <Search size={32} />
+             </div>
+             <h3 className="text-xl font-bold text-white mb-2">No projects found</h3>
+             <p className="text-zinc-500 max-w-md mx-auto">
+               Try adjusting your search terms or filters to find what you're looking for.
+             </p>
+             <button 
+               onClick={clearFilters}
+               className="mt-6 px-6 py-2 bg-white text-black rounded-full font-bold hover:bg-zinc-200 transition-colors"
+             >
+               Clear Filters
+             </button>
+          </div>
+        )}
       </div>
     </div>
   );
